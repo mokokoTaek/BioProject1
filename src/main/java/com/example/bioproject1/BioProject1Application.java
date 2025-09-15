@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BioProject1Application {
 
     public static void main(String[] args) {
+
+        System.out.println("hi");
+
         SpringApplication.run(BioProject1Application.class, args);
     }
 
