@@ -10,6 +10,7 @@ public class BioProject1Application {
 
         System.out.println("hihi");
         System.out.println("i am pull-request tester");
+        System.out.println("i am pull-request tester2");
         SpringApplication.run(BioProject1Application.class, args);
     }
 
