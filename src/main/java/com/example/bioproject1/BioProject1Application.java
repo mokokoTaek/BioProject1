@@ -8,7 +8,7 @@ public class BioProject1Application {
 
     public static void main(String[] args) {
 
-        System.out.println("hi");
+        System.out.println("hihi");
 
         SpringApplication.run(BioProject1Application.class, args);
     }
