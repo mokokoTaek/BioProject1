@@ -7,10 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BioProject1Application {
 
     public static void main(String[] args) {
-
-        System.out.println("hihi");
-        System.out.println("i am pull-request tester");
-        System.out.println("i am pull-request tester2");
         SpringApplication.run(BioProject1Application.class, args);
     }
 
