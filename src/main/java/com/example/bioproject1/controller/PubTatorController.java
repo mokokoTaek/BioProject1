@@ -2,60 +2,49 @@ package com.example.bioproject1.controller;
 
 import com.example.bioproject1.dto.HighlightedAbstract;
 import com.example.bioproject1.service.PubTatorService;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
+/**
+ * PubTator API 검색을 위한 REST 컨트롤러
+ * @RestController 어노테이션이 이 클래스를 API 엔드포인트로 등록합니다.
+ */
 @RestController
-@RequestMapping("/api/pubtator")
+@RequestMapping("/api") // 이 클래스의 모든 경로는 /api 로 시작합니다.
 public class PubTatorController {
 
     private final PubTatorService pubTatorService;
 
-    // 생성자를 통한 의존성 주입 (DI)
+    // @Autowired를 통해 PubTatorService를 주입받습니다.
+    @Autowired
     public PubTatorController(PubTatorService pubTatorService) {
         this.pubTatorService = pubTatorService;
     }
 
     /**
-     * 키워드 검색을 위한 GET 엔드포인트
-     * 예: /api/pubtator/search?keywords=APOE4 Alzheimer
+     * /api/search 경로로 GET 요청을 처리합니다.
+     * @param keywords 'keywords'라는 쿼리 파라미터를 받습니다.
+     * @return 하이라이트된 초록 리스트를 JSON 형태로 반환합니다.
      */
     @GetMapping("/search")
-    public ResponseEntity<?> searchPublications(@RequestParam String keywords) {
-        if (keywords == null || keywords.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "keywords 파라미터가 필요합니다."));
-        }
-
+    public ResponseEntity<List<HighlightedAbstract>> search(@RequestParam String keywords) {
         try {
-            // 서비스 호출
             List<HighlightedAbstract> results = pubTatorService.searchAndHighlight(keywords);
-
             if (results.isEmpty()) {
-                // 결과는 없지만 요청은 성공
-                return ResponseEntity.ok(Map.of("message", "검색 결과가 없습니다."));
+                // 결과는 있으나 내용이 없는 경우 (200 OK와 빈 리스트 반환)
+                return ResponseEntity.ok(results);
             }
-
-            // 성공
             return ResponseEntity.ok(results);
-
-        } catch (IOException | InterruptedException e) {
-            // API 호출 중 발생한 예외
-            e.printStackTrace(); // 서버 로그에 스택 트레이스 출력
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "API 호출 중 서버 오류 발생: " + e.getMessage()));
-        } catch (RuntimeException e) {
-            // API가 200이 아닌 응답(404, 400 등)을 반환했을 때
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY) // 502: Bad Gateway (외부 API 오류)
-                    .body(Map.of("error", "외부 API 오류: " + e.getMessage()));
+        } catch (Exception e) {
+            // API 호출 실패 등 서버 오류가 발생한 경우 (500 Internal Server Error)
+            e.printStackTrace(); // 서버 로그에 에러 출력
+            return ResponseEntity.status(500).body(null); // 클라이언트에게는 null 반환
         }
     }
 }

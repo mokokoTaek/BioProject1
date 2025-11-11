@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PubTator 검색기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 하이라이트 태그 스타일 */
+        .highlight {
+            background-color: #fde047; /* tailwind-yellow-300 */
+            font-weight: 600;
+            padding: 1px 2px;
+            border-radius: 3px;
+        }
+        /* 로딩 스피너 스타일 */
+        .loader {
+            border: 4px solid #f3f3f3; /* light grey */
+            border-top: 4px solid #3498db; /* blue */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+<div class="container mx-auto max-w-3xl p-4 sm:p-6 md:p-8">
+
+    <!-- 헤더 -->
+    <header class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">PubTator 논문 검색</h1>
+        <p class="text-gray-600">키워드로 논문을 검색하고, 초록에서 생물학적 개념(유전자, 질병 등)을 확인하세요.</p>
+    </header>
+
+    <!-- 검색 폼 -->
+    <form id="searchForm" class="mb-6">
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input
+                    type="text"
+                    id="keywords"
+                    placeholder="예: APOE4 Alzheimer's Disease"
+                    required
+                    class="flex-grow w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            >
+            <button
+                    type="submit"
+                    id="searchButton"
+                    class="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition disabled:opacity-50"
+            >
+                검색
+            </button>
+        </div>
+    </form>
+
+    <!-- 로딩 인디케이터 (초기 숨김) -->
+    <div id="loadingIndicator" class="hidden flex justify-center items-center py-10">
+        <div class="loader"></div>
+        <p class="ml-4 text-gray-600">검색 중... (최대 10-15초 소요될 수 있습니다)</p>
+    </div>
+
+    <!-- 에러 메시지 영역 -->
+    <div id="errorMessage" class="hidden p-4 mb-4 bg-red-100 text-red-700 border border-red-300 rounded-lg"></div>
+
+    <!-- 검색 결과 영역 -->
+    <div id="resultsContainer" class="space-y-4">
+        <!-- 결과가 여기에 동적으로 삽입됩니다. -->
+    </div>
+
+</div>
+
+<script>
+    const searchForm = document.getElementById('searchForm');
+    const keywordsInput = document.getElementById('keywords');
+    const searchButton = document.getElementById('searchButton');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const errorMessage = document.getElementById('errorMessage');
+    const resultsContainer = document.getElementById('resultsContainer');
+
+    searchForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); // 폼 기본 제출 방지
+        const keywords = keywordsInput.value;
+
+        // UI 초기화
+        searchButton.disabled = true;
+        loadingIndicator.classList.remove('hidden');
+        errorMessage.classList.add('hidden');
+        resultsContainer.innerHTML = '';
+
+        try {
+            // (중요) 백엔드 /api/search 엔드포인트 호출
+            const response = await fetch(`/api/search?keywords=${encodeURIComponent(keywords)}`);
+
+            if (!response.ok) {
+                // 404, 500 등 서버 에러 처리
+                throw new Error(`API 호출 실패 (HTTP ${response.status}): ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-gray-500 text-center">검색 결과가 없습니다.</p>';
+            } else {
+                // (중요) DTO의 필드 이름과 정확히 일치시킴
+                data.forEach(result => {
+
+                    // *** (디버깅) 수신된 객체 전체를 콘솔에 출력 ***
+                    console.log('Received result object:', result);
+
+                    const resultElement = document.createElement('article');
+                    resultElement.className = 'bg-white p-5 shadow rounded-lg border border-gray-200';
+
+                    // "PubMed에서 보기" 링크
+                    const pmidLink = `https://pubmed.ncbi.nlm.nih.gov/${escapeHTML(result.pmid)}`;
+
+                    // (수정) camelCase(result.highlightedAbstract)와 snake_case(result.highlighted_abstract) 모두 확인
+                    // (수정) 콘솔에서 확인한 'abstractHtml' 키를 사용합니다.
+                    const abstractHtml = result.abstractHtml || '';
+
+                    resultElement.innerHTML = `
+                            <h2 class="text-lg font-semibold text-blue-700 mb-1">
+                                [PMID: ${escapeHTML(result.pmid)}]
+                                <a href="${pmidLink}"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="ml-2 text-sm font-normal text-blue-500 hover:underline">
+                                    (PubMed에서 보기)
+                                </a>
+                            </h2>
+                            <h3 class="text-md font-semibold text-gray-800 mb-3">${escapeHTML(result.title)}</h3>
+
+                            <div class="text-sm prose prose-sm max-w-none text-gray-700">
+                                ${abstractHtml}
+                            </div>
+                        `;
+                    resultsContainer.appendChild(resultElement);
+                });
+            }
+
+        } catch (error) {
+            console.error('검색 중 오류 발생:', error);
+            errorMessage.textContent = `오류 발생: ${error.message}`;
+            errorMessage.classList.remove('hidden');
+        } finally {
+            // UI 복원
+            searchButton.disabled = false;
+            loadingIndicator.classList.add('hidden');
+        }
+    });
+
+    // XSS(Cross-Site Scripting) 방지를 위한 간단한 HTML 이스케이프 함수
+    function escapeHTML(str) {
+        if (str === null || str === undefined) return '';
+        return str.replace(/[&<>"']/g, function(match) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[match];
+        });
+    }
+</script>
+
+</body>
+</html>
